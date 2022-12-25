@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "A Node.js socks5 server implementation with fine-grained connection control.",
   "main": "dist",
-  "repository": "https://github.com/PondWader/node-sock5-server",
+  "repository": "https://github.com/PondWader/node-socks5-server",
   "author": "PondWader",
   "license": "MIT",
   "devDependencies": {
