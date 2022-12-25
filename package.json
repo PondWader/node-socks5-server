@@ -1,0 +1,13 @@
+{
+  "name": "@pondwader/socks5-server",
+  "version": "1.0.0",
+  "description": "A Node.js socks5 server implementation with fine-grained connection control.",
+  "main": "dist",
+  "repository": "https://github.com/PondWader/node-sock5-server",
+  "author": "PondWader",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^18.11.17",
+    "typescript": "^4.9.4"
+  }
+}
