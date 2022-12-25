@@ -103,7 +103,7 @@ server.setRulesetValidator((conn, accept, deny) => {
 You also have to access to `<Socks5Connection>.destAddress`.
 
 ## Handling the proxying of connections
-By default the library will handle connections itself using the build in connection handler, but you can override this to use your own handler.  
+By default the library will handle connections itself using the built in connection handler, but you can override this to use your own handler.  
 [See the built in connection handling function here to further your understanding on how to handle connections.](https://github.com/PondWader/node-socks5-server/blob/main/src/connectionHandler.ts)  
 You can set your handling function:
 ```js

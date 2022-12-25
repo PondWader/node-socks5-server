@@ -101,9 +101,7 @@ export class Socks5Connection {
             this.socket.destroy();
         }
 
-        const resp = this.server.authHandler instanceof Promise ?
-         await this.server.authHandler!(this as AuthSocks5Connection, acceptCallback, denyCallback)
-         : this.server.authHandler!(this as AuthSocks5Connection, acceptCallback, denyCallback);
+        const resp = await this.server.authHandler!(this as AuthSocks5Connection, acceptCallback, denyCallback)
 
         if (resp === true) acceptCallback();
         else if (resp === false) denyCallback();
@@ -178,9 +176,7 @@ export class Socks5Connection {
             this.socket.destroy();
         }
 
-        const resp = this.server.rulesetValidator instanceof Promise ?
-         await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback)
-         : this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
+        const resp = await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
 
         if (resp === true) acceptCallback();
         else if (resp === false) denyCallback();

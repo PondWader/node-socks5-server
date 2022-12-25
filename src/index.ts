@@ -17,7 +17,6 @@ export function createServer(opts?: ServerOptions) {
     }) 
 
     if (opts?.port) server.listen(opts.port, opts.hostname);
-    server.close()
 
     return server;
 }
