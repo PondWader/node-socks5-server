@@ -104,7 +104,7 @@ You also have to access to `<Socks5Connection>.destAddress`.
 
 ## Handling the proxying of connections
 By default the library will handle connections itself using the build in connection handler, but you can override this to use your own handler.  
-[See the built in connection handling function here to further your understanding on how to handle connections.]('https://github.com/Pondwader/node-socks5-server/tree/main/src/connectionHandler.ts')  
+[See the built in connection handling function here to further your understanding on how to handle connections.](https://github.com/PondWader/node-socks5-server/blob/main/src/connectionHandler.ts)  
 You can set your handling function:
 ```js
 const { createServer } = require('@pondwader/socks5-server');
@@ -133,6 +133,13 @@ server.setConnectionHandler((conn, sendStatus) => {
     // Do stuff here
 })
 ```
+
+## Handling commands other than `connect`
+The library only has a built in handler for connections using the `connect` command, this is used for TCP socket proxying and is by far the most common command however, you may wish to add support for other commands.  
+The other command types are `udp` and `bind`. To handle these you will need to make your own connection handler (see section above). **Note:** the `Socks5Connection` class exposes the `command` property which gives you access to the command sent by the client.  
+You will also need to add the commands you want to handle to the supported commands set. The `Socks5Server` class has the `supportedCommands` property which is a [Set](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Set) instance.  
+For example:
+`<Socks5Server>.supportedCommands.add('udp');`
 
 ## You can also pass Duplex streams as connections...
 ```js
