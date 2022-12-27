@@ -31,7 +31,7 @@ export default class Socks5Server {
     listen (handle: any, backlog?: number, listeningListener?: () => void): this;
     listen (handle: any, listeningListener?: () => void): this;
     listen(...args: any[]) {
-        this.server.close(...args);
+        this.server.listen(...args);
         return this;
     }
 
