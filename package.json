@@ -18,5 +18,8 @@
     "socks5",
     "socks5-server",
     "typescript"
-  ]
+  ],
+  "scripts": {
+    "prepublishOnly": "npx tsc"
+  }
 }
