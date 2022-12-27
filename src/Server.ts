@@ -1,8 +1,9 @@
-import { Duplex, EventEmitter } from "stream";
+import { Duplex } from "stream";
 import net from "net";
 import { Socks5Connection } from "./Connection";
 import { AuthSocks5Connection, InitialisedSocks5Connection, Socks5ConnectionCommand, Socks5ConnectionStatus } from "./types";
 import connectionHandler from "./connectionHandler";
+import { socks5ServerListen } from "./types";
 
 export default class Socks5Server {
     public authHandler?: (connection: AuthSocks5Connection, accept: () => void, deny: () => void) => boolean | Promise<boolean> | void;
@@ -24,7 +25,7 @@ export default class Socks5Server {
         this.listen = ((...args: any) => {
             this.server.listen(...args);
             return this;
-        }) as (port?: number | undefined, hostname?: string | undefined, backlog?: number | undefined, listeningListener?: (() => void) | undefined) => Socks5Server
+        }) as socks5ServerListen;
         this.close = ((...args: any) => {
             this.server.close(...args);
             return this;
@@ -48,6 +49,16 @@ export default class Socks5Server {
 
     disableRulesetValidator() {
         this.rulesetValidator = undefined;
+        return this;
+    }
+
+    setConnectionHandler(handler: typeof this.connectionHandler) {
+        this.connectionHandler = handler;
+        return this;
+    }
+
+    useDefaultConnectionHandler() {
+        this.connectionHandler = connectionHandler;
         return this;
     }
 
