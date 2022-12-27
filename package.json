@@ -1,6 +1,6 @@
 {
   "name": "@pondwader/socks5-server",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "A Node.js socks5 server implementation enabling fine-grained connection control.",
   "main": "dist",
   "repository": "https://github.com/PondWader/node-socks5-server",
