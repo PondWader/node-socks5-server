@@ -3,7 +3,6 @@ import net from "net";
 import { Socks5Connection } from "./Connection";
 import { AuthSocks5Connection, InitialisedSocks5Connection, Socks5ConnectionCommand, Socks5ConnectionStatus } from "./types";
 import connectionHandler from "./connectionHandler";
-import { socks5ServerListen } from "./types";
 
 export default class Socks5Server {
     public authHandler?: (connection: AuthSocks5Connection, accept: () => void, deny: () => void) => boolean | Promise<boolean> | void;
@@ -12,8 +11,6 @@ export default class Socks5Server {
 
     public supportedCommands: Set<keyof typeof Socks5ConnectionCommand> = new Set(["connect"]);
     private server: net.Server;
-    public listen;
-    public close;
 
     constructor() {
         this.connectionHandler = connectionHandler;
@@ -21,15 +18,26 @@ export default class Socks5Server {
         this.server = net.createServer((socket) => {
             this._handleConnection(socket);
         });
+    }
 
-        this.listen = ((...args: any) => {
-            this.server.listen(...args);
-            return this;
-        }) as socks5ServerListen;
-        this.close = ((...args: any) => {
-            this.server.close(...args);
-            return this;
-        }) as (callback?: ((err?: Error | undefined) => void) | undefined) => Socks5Server;
+    // All the possible listen args but instead of returning the net.Server instance, returns Socks5Server instance
+    listen (port?: number, hostname?: string, backlog?: number, listeningListener?: () => void): this;
+    listen (port?: number, hostname?: string, listeningListener?: () => void): this;
+    listen (port?: number, backlog?: number, listeningListener?: () => void): this;
+    listen (port?: number, listeningListener?: () => void): this;
+    listen (path: string, backlog?: number, listeningListener?: () => void): this;
+    listen (path: string, listeningListener?: () => void): this;
+    listen (options: import('net').ListenOptions, listeningListener?: () => void): this;
+    listen (handle: any, backlog?: number, listeningListener?: () => void): this;
+    listen (handle: any, listeningListener?: () => void): this;
+    listen(...args: any[]) {
+        this.server.close(...args);
+        return this;
+    }
+
+    close(callback?: ((err?: Error | undefined) => void) | undefined) {
+        this.server.close(callback);
+        return this;
     }
 
     setAuthHandler(handler: typeof this.authHandler) {
