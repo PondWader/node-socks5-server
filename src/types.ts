@@ -1,5 +1,4 @@
 import { Socks5Connection } from "./Connection";
-import Socks5Server from "./Server";
 
 export enum Socks5ConnectionCommand {
     connect = 1,
@@ -15,7 +14,8 @@ export enum Socks5ConnectionStatus {
     HOST_UNREACHABLE,
     CONNECTION_REFUSED,
     TTL_EXPIRED,
-    COMMAND_NOT_SUPPORTED
+    COMMAND_NOT_SUPPORTED,
+    ADDRESS_TYPE_NOT_SUPPORTED
 }
 
 export type AuthSocks5Connection = Socks5Connection & {

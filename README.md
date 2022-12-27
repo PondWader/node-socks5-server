@@ -146,3 +146,6 @@ For example:
 const { Duplex } = require('streams');
 server._handleConnection(new Duplex());
 ```
+
+## Metadata
+The `Socks5Connection` class has a metadata attribute which starts as an empty object, you can put data in this to pass data about a connection between seperate handlers.  

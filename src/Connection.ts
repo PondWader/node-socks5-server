@@ -11,6 +11,7 @@ export class Socks5Connection {
     public destPort?: number;
     public command?: keyof typeof Socks5ConnectionCommand;
     private errorHandler = () => {};
+    public metadata: any = {};
 
     constructor(server: Socks5Server, socket: Duplex) {
         this.socket = socket;
