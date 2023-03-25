@@ -99,6 +99,11 @@ export class Socks5Connection {
             if (calledBack) return;
             calledBack = true;
 
+            this.socket.write(Buffer.from([
+                0x01, // User pass auth version
+                0x01 // Failure
+            ]))
+
             this.socket.destroy();
         }
 
@@ -189,22 +194,18 @@ export class Socks5Connection {
         this.server.connectionHandler(this as InitialisedSocks5Connection, (status) => {
             if (Socks5ConnectionStatus[status] === undefined) throw new Error(`"${status}" is not a valid status.`);
 
-            if (status === 'REQUEST_GRANTED') {
-                // We can just send 0x00 for bound address stuff
-                this.socket.write(Buffer.from([0x05,
-                    Socks5ConnectionStatus[status],
-                    0x00,
-                    0x01,
-                    0x00, 0x00, 0x00, 0x00,
-                    0x00, 0x00
-                ]))
-            }
-            else {
-                this.socket.write(Buffer.from([
-                    0x05,
-                    Socks5ConnectionStatus[status]
-                ]))
-                this.socket.destroy();
+            // We can just send 0x00 for bound address stuff
+            this.socket.write(Buffer.from([
+                0x05,
+                Socks5ConnectionStatus[status],
+                0x00,
+                0x01,
+                0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00
+            ]))
+
+            if (status !== 'REQUEST_GRANTED') {
+                this.socket.destroy()
             }
         })
 
