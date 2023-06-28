@@ -178,7 +178,13 @@ export class Socks5Connection {
             if (calledBack) return;
             calledBack = true;
 
-            this.socket.write(Buffer.from([0x05, 0x02])); // connection not allowed by ruleset
+            this.socket.write(Buffer.from([
+                0x05, 0x02, // connection not allowed by ruleset
+                0x00,
+                0x01,
+                0x00, 0x00, 0x00, 0x00,
+                0x00, 0x00
+            ])); 
             this.socket.destroy();
         }
 

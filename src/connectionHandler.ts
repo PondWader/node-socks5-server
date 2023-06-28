@@ -20,6 +20,7 @@ export default function (connection: InitialisedSocks5Connection, sendStatus: (s
                 case 'ENOENT':
                 case 'ENOTFOUND':
                 case 'ETIMEDOUT':
+                case 'EADDRNOTAVAIL':
                 case 'EHOSTUNREACH':
                     sendStatus('HOST_UNREACHABLE');
                     break;
