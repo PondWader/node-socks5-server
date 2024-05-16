@@ -129,10 +129,47 @@ export class Socks5Connection {
 
         await this.readBytes(1); // Skip reserved byte, should be 0x00
 
+        // Reading destination address
+        const addrType = (await this.readBytes(1)).readUInt8();
+
+        let address = '';
+        switch(addrType) {
+            case 1:
+                // IPv4
+                address = (await this.readBytes(4)).join('.');
+                break;
+
+            case 3:
+                // Domain name
+                const hostLength = (await this.readBytes(1)).readUInt8();
+                address = (await this.readBytes(hostLength)).toString();
+                break;
+
+            case 4:
+                // IPv6
+                const bytes = await this.readBytes(16);
+
+                for (let i = 0; i < 16; i++) {
+                    if (i % 2 === 0 && i > 0) address += ':';
+                    address += `${bytes[i] < 16 ? '0' : ''}${bytes[i].toString(16)}`
+                }
+                break;
+
+            default:
+                this.socket.destroy(); // No valid address type provided
+                return;
+        }
+
+        const port = (await this.readBytes(2)).readUInt16BE();
+
+
         if (!this.server.supportedCommands.has(command)) {
             this.socket.write(Buffer.from([0x05, Socks5ConnectionStatus.COMMAND_NOT_SUPPORTED])); // command not supported
             return this.socket.destroy();
         }
+
+        this.destAddress = address;
+        this.destPort = port;
 
         let calledBack = false;
         const acceptCallback = () => {
@@ -162,11 +199,8 @@ export class Socks5Connection {
 
         const resp = await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
 
-        if (resp === true) {
-            acceptCallback();
-        } else if (resp === false) {
-            denyCallback();
-        }
+        if (resp === true) acceptCallback();
+        else if (resp === false) denyCallback();
     }
 
     private connect() {
