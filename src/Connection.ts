@@ -1,4 +1,5 @@
 import { Duplex } from "stream";
+import net from 'net';
 import Socks5Server from "./Server";
 import { AuthSocks5Connection, Socks5ConnectionCommand, InitialisedSocks5Connection, Socks5ConnectionStatus } from "./types";
 
@@ -13,13 +14,18 @@ export class Socks5Connection {
     private errorHandler = () => {};
     public metadata: any = {};
 
-    constructor(server: Socks5Server, socket: Duplex) {
+    constructor(server: Socks5Server, socket: net.Socket) {
         this.socket = socket;
         this.server = server;
 
-        socket.on('error', this.errorHandler); // Ignore errors
+        if (socket.remoteAddress) {
+            this.destAddress = net.isIPv4(socket.remoteAddress) ? socket.remoteAddress : socket.remoteAddress.replace(/^.*:/, '');
+            this.destPort = socket.remotePort;
+        }
 
+        socket.on('error', this.errorHandler); // Ignore errors
         socket.pause();
+
         this.handleGreeting();
     }
 
@@ -52,12 +58,12 @@ export class Socks5Connection {
         const authMethods = await this.readBytes(authMethodsAmount);
 
         const authMethodByteCode = this.server.authHandler ? 0x02 : 0x00;
-        
+
         if (!authMethods.includes(authMethodByteCode)) {
             // The chosen authentication method is not available
             this.socket.write(Buffer.from([
                 0x05, // Version 5 - Socks5
-                0xFF // no acceptable auth modes were offered 
+                0xFF // no acceptable auth modes were offered
             ]));
             return this.socket.destroy();
         }
@@ -123,46 +129,10 @@ export class Socks5Connection {
 
         await this.readBytes(1); // Skip reserved byte, should be 0x00
 
-        // Reading destination address
-        const addrType = (await this.readBytes(1)).readUInt8();
-
-        let address = '';
-        switch(addrType) {
-            case 1:
-                // IPv4
-                address = (await this.readBytes(4)).join('.');
-                break;
-
-            case 3:
-                // Domain name
-                const hostLength = (await this.readBytes(1)).readUInt8();
-                address = (await this.readBytes(hostLength)).toString();
-                break;
-
-            case 4:
-                // IPv6
-                const bytes = await this.readBytes(16);
-
-                for (let i = 0; i < 16; i++) {
-                    if (i % 2 === 0 && i > 0) address += ':';
-                    address += `${bytes[i] < 16 ? '0' : ''}${bytes[i].toString(16)}`
-                }
-                break;
-
-            default:
-                this.socket.destroy(); // No valid address type provided
-                return;
-        }
-        
-        const port = (await this.readBytes(2)).readUInt16BE();
-
         if (!this.server.supportedCommands.has(command)) {
             this.socket.write(Buffer.from([0x05, Socks5ConnectionStatus.COMMAND_NOT_SUPPORTED])); // command not supported
             return this.socket.destroy();
         }
-
-        this.destAddress = address;
-        this.destPort = port;
 
         let calledBack = false;
         const acceptCallback = () => {
@@ -172,7 +142,9 @@ export class Socks5Connection {
             this.connect();
         };
 
-        if (!this.server.rulesetValidator) return acceptCallback();
+        if (!this.server.rulesetValidator) {
+            return acceptCallback();
+        }
 
         const denyCallback = () => {
             if (calledBack) return;
@@ -184,14 +156,17 @@ export class Socks5Connection {
                 0x01,
                 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00
-            ])); 
+            ]));
             this.socket.destroy();
         }
 
         const resp = await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
 
-        if (resp === true) acceptCallback();
-        else if (resp === false) denyCallback();
+        if (resp === true) {
+            acceptCallback();
+        } else if (resp === false) {
+            denyCallback();
+        }
     }
 
     private connect() {

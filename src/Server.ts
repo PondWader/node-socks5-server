@@ -15,7 +15,7 @@ export default class Socks5Server {
     constructor() {
         this.connectionHandler = connectionHandler;
 
-        this.server = net.createServer((socket) => {
+        this.server = net.createServer((socket: net.Socket) => {
             this._handleConnection(socket);
         });
     }
@@ -71,7 +71,7 @@ export default class Socks5Server {
     }
 
     // Not private because someone may want to inject a duplex stream to be handled as a connection
-    _handleConnection(socket: Duplex) {
+    _handleConnection(socket: net.Socket) {
         new Socks5Connection(this, socket);
         return this;
     }
