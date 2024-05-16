@@ -12,6 +12,7 @@ export default function (connection: InitialisedSocks5Connection, sendStatus: (s
         host: connection.destAddress,
         port: connection.destPort
     });
+    stream.setNoDelay();
 
     let streamOpened = false;
     stream.on('error', (err: Error & { code: string }) => {
