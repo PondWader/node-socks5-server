@@ -25,15 +25,18 @@ export class Socks5Connection {
 
     private readBytes(len: number): Promise<Buffer> {
         return new Promise(resolve => {
-            let buf = Buffer.allocUnsafe(0);
+            let buf = Buffer.allocUnsafe(len);
+            let offset = 0;
 
             const dataListener = (chunk: Buffer) => {
-                buf = Buffer.concat([buf, chunk]);
-                if (buf.length < len) return;
+                const readAmount = Math.min(chunk.length, len - offset);
+                chunk.copy(buf, offset, 0, readAmount);
+                offset += readAmount;
+                if (offset < len) return;
 
                 this.socket.removeListener('data', dataListener);
-                this.socket.push(buf.subarray(len));
-                resolve(buf.subarray(0, len));
+                this.socket.push(chunk.subarray(readAmount));
+                resolve(buf);
                 this.socket.pause()
             }
 
@@ -199,7 +202,6 @@ export class Socks5Connection {
 
         this.server.connectionHandler(this as InitialisedSocks5Connection, (status) => {
             if (Socks5ConnectionStatus[status] === undefined) throw new Error(`"${status}" is not a valid status.`);
-            console.log(`Sending ${status}`)
 
             // We can just send 0x00 for bound address stuff
             this.socket.write(Buffer.from([

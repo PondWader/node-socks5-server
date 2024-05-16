@@ -2,7 +2,7 @@ const net = require('net')
 const { createHttpTestServer, createSocks5TestServer, randomString } = require('./utils')
 const socks5Buffers = require('./socks5Buffers')
 
-function handleTestConnection(socks5Port, initialData, stagedData = []) {
+function handleTestConnection(socks5Port, initialData, stagedData = [], fragment = false) {
     return new Promise((resolve, reject) => {
         const socket = net.createConnection({
             host: '127.0.0.1',
@@ -32,11 +32,19 @@ function handleTestConnection(socks5Port, initialData, stagedData = []) {
             resolve(receivedData)
         })
 
-        socket.write(initialData)
+        if (fragment) {
+            let position = 0;
+            const sendInterval = setInterval(() => {
+                socket.write(Buffer.from([initialData[position]]));
+                position++;
+                if (position === initialData.length) clearInterval(sendInterval);
+            }, 20);
+        }
+        else socket.write(initialData)
     })
 }
 
-async function httpTest(withAuth) {
+async function httpTest(withAuth, fragment = false) {
     const httpServer = await createHttpTestServer()
 
     const username = randomString(11)
@@ -72,7 +80,7 @@ async function httpTest(withAuth) {
         ]), [{
             after: withAuth ? 13 : 11,
             data: 'GET / HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n'
-        }])]).toEqual(expectedBytes)
+        }], fragment)]).toEqual(expectedBytes)
     } catch (err) {
         throw err
     } finally {
@@ -168,3 +176,5 @@ test('Connection ruleset validator works', async () => {
 
     server.close()
 })
+
+test('Fragmented packets work', () => httpTest(false, true))
