@@ -10,7 +10,7 @@ export class Socks5Connection {
     public destAddress?: string;
     public destPort?: number;
     public command?: keyof typeof Socks5ConnectionCommand;
-    private errorHandler = () => {};
+    private errorHandler = () => { };
     public metadata: any = {};
 
     constructor(server: Socks5Server, socket: Duplex) {
@@ -52,7 +52,7 @@ export class Socks5Connection {
         const authMethods = await this.readBytes(authMethodsAmount);
 
         const authMethodByteCode = this.server.authHandler ? 0x02 : 0x00;
-        
+
         if (!authMethods.includes(authMethodByteCode)) {
             // The chosen authentication method is not available
             this.socket.write(Buffer.from([
@@ -127,7 +127,7 @@ export class Socks5Connection {
         const addrType = (await this.readBytes(1)).readUInt8();
 
         let address = '';
-        switch(addrType) {
+        switch (addrType) {
             case 1:
                 // IPv4
                 address = (await this.readBytes(4)).join('.');
@@ -153,7 +153,7 @@ export class Socks5Connection {
                 this.socket.destroy(); // No valid address type provided
                 return;
         }
-        
+
         const port = (await this.readBytes(2)).readUInt16BE();
 
         if (!this.server.supportedCommands.has(command)) {
@@ -184,7 +184,7 @@ export class Socks5Connection {
                 0x01,
                 0x00, 0x00, 0x00, 0x00,
                 0x00, 0x00
-            ])); 
+            ]));
             this.socket.destroy();
         }
 
@@ -199,6 +199,7 @@ export class Socks5Connection {
 
         this.server.connectionHandler(this as InitialisedSocks5Connection, (status) => {
             if (Socks5ConnectionStatus[status] === undefined) throw new Error(`"${status}" is not a valid status.`);
+            console.log(`Sending ${status}`)
 
             // We can just send 0x00 for bound address stuff
             this.socket.write(Buffer.from([
