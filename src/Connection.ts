@@ -1,5 +1,4 @@
 import { Duplex } from 'stream';
-import net from 'net';
 import Socks5Server from './Server';
 import { AuthSocks5Connection, Socks5ConnectionCommand, InitialisedSocks5Connection, Socks5ConnectionStatus } from './types';
 
@@ -15,14 +14,9 @@ export class Socks5Connection {
   };
   public metadata: any = {};
 
-  constructor(server: Socks5Server, socket: net.Socket) {
+  constructor(server: Socks5Server, socket: Duplex) {
     this.socket = socket;
     this.server = server;
-
-    if (socket.remoteAddress) {
-      this.destAddress = net.isIPv4(socket.remoteAddress) ? socket.remoteAddress : socket.remoteAddress.replace(/^.*:/, '');
-      this.destPort = socket.remotePort;
-    }
 
     socket.on('error', this.errorHandler); // Ignore errors
     socket.pause();
