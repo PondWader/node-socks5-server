@@ -16,20 +16,21 @@ export default class Socks5Server {
         this.connectionHandler = connectionHandler;
 
         this.server = net.createServer((socket) => {
+            socket.setNoDelay();
             this._handleConnection(socket);
         });
     }
 
     // All the possible listen args but instead of returning the net.Server instance, returns Socks5Server instance
-    listen (port?: number, hostname?: string, backlog?: number, listeningListener?: () => void): this;
-    listen (port?: number, hostname?: string, listeningListener?: () => void): this;
-    listen (port?: number, backlog?: number, listeningListener?: () => void): this;
-    listen (port?: number, listeningListener?: () => void): this;
-    listen (path: string, backlog?: number, listeningListener?: () => void): this;
-    listen (path: string, listeningListener?: () => void): this;
-    listen (options: import('net').ListenOptions, listeningListener?: () => void): this;
-    listen (handle: any, backlog?: number, listeningListener?: () => void): this;
-    listen (handle: any, listeningListener?: () => void): this;
+    listen(port?: number, hostname?: string, backlog?: number, listeningListener?: () => void): this;
+    listen(port?: number, hostname?: string, listeningListener?: () => void): this;
+    listen(port?: number, backlog?: number, listeningListener?: () => void): this;
+    listen(port?: number, listeningListener?: () => void): this;
+    listen(path: string, backlog?: number, listeningListener?: () => void): this;
+    listen(path: string, listeningListener?: () => void): this;
+    listen(options: import('net').ListenOptions, listeningListener?: () => void): this;
+    listen(handle: any, backlog?: number, listeningListener?: () => void): this;
+    listen(handle: any, listeningListener?: () => void): this;
     listen(...args: any[]) {
         this.server.listen(...args);
         return this;
