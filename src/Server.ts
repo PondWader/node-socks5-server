@@ -5,7 +5,9 @@ import { AuthSocks5Connection, InitialisedSocks5Connection, Socks5ConnectionComm
 import connectionHandler from "./connectionHandler";
 
 export default class Socks5Server {
-    public authHandler?: (connection: AuthSocks5Connection, accept: () => void, deny: () => void) => boolean | Promise<boolean> | any;
+    public authHandler (connection: AuthSocks5Connection, accept: () => void, deny: () => void): boolean | Promise<boolean> | any {
+        return true;
+    };
     public rulesetValidator?: (connection: InitialisedSocks5Connection, accept: () => void, deny: () => void) => boolean | Promise<boolean> | void;
     public connectionHandler: (connection: InitialisedSocks5Connection, sendStatus: (status: keyof typeof Socks5ConnectionStatus) => void) => void;
 
@@ -46,7 +48,9 @@ export default class Socks5Server {
     }
 
     disableAuthHandler() {
-        this.authHandler = undefined;
+        this.authHandler = () => {
+            return true;
+        };
         return this;
     }
 

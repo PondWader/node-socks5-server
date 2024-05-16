@@ -1,229 +1,225 @@
-import { Duplex } from "stream";
+import { Duplex } from 'stream';
 import net from 'net';
-import Socks5Server from "./Server";
-import { AuthSocks5Connection, Socks5ConnectionCommand, InitialisedSocks5Connection, Socks5ConnectionStatus } from "./types";
+import Socks5Server from './Server';
+import { AuthSocks5Connection, Socks5ConnectionCommand, InitialisedSocks5Connection, Socks5ConnectionStatus } from './types';
 
 export class Socks5Connection {
-    public socket: Duplex;
-    public server: Socks5Server;
-    public username?: string;
-    public password?: string;
-    public destAddress?: string;
-    public destPort?: number;
-    public command?: keyof typeof Socks5ConnectionCommand;
-    private errorHandler = () => {};
-    public metadata: any = {};
+  public socket: Duplex;
+  public server: Socks5Server;
+  public username?: string;
+  public password?: string;
+  public destAddress?: string;
+  public destPort?: number;
+  public command?: keyof typeof Socks5ConnectionCommand;
+  private errorHandler = () => {
+  };
+  public metadata: any = {};
 
-    constructor(server: Socks5Server, socket: net.Socket) {
-        this.socket = socket;
-        this.server = server;
+  constructor(server: Socks5Server, socket: net.Socket) {
+    this.socket = socket;
+    this.server = server;
 
-        if (socket.remoteAddress) {
-            this.destAddress = net.isIPv4(socket.remoteAddress) ? socket.remoteAddress : socket.remoteAddress.replace(/^.*:/, '');
-            this.destPort = socket.remotePort;
-        }
-
-        socket.on('error', this.errorHandler); // Ignore errors
-        socket.pause();
-
-        this.handleGreeting();
+    if (socket.remoteAddress) {
+      this.destAddress = net.isIPv4(socket.remoteAddress) ? socket.remoteAddress : socket.remoteAddress.replace(/^.*:/, '');
+      this.destPort = socket.remotePort;
     }
 
-    private readBytes(len: number): Promise<Buffer> {
-        return new Promise(resolve => {
-            let buf = Buffer.allocUnsafe(0);
+    socket.on('error', this.errorHandler); // Ignore errors
+    socket.pause();
 
-            const dataListener = (chunk: Buffer) => {
-                buf = Buffer.concat([buf, chunk]);
-                if (buf.length < len) return;
+    this.handleGreeting();
+  }
 
-                this.socket.removeListener('data', dataListener);
-                this.socket.push(buf.subarray(len));
-                resolve(buf.subarray(0, len));
-                this.socket.pause()
-            }
+  private readBytes(len: number): Promise<Buffer> {
+    return new Promise(resolve => {
+      let buf = Buffer.allocUnsafe(0);
 
-            this.socket.on('data', dataListener);
-            this.socket.resume();
-        })
+      const dataListener = (chunk: Buffer) => {
+        buf = Buffer.concat([buf, chunk]);
+        if (buf.length < len) return;
+
+        this.socket.removeListener('data', dataListener);
+        this.socket.push(buf.subarray(len));
+        resolve(buf.subarray(0, len));
+        this.socket.pause();
+      };
+
+      this.socket.on('data', dataListener);
+      this.socket.resume();
+    });
+  }
+
+  private async handleGreeting() {
+    const ver = (await this.readBytes(1)).readUInt8();
+    if (ver !== 5) return this.socket.destroy(); // Must be version 5 for socks5
+
+    const authMethodsAmount = (await this.readBytes(1)).readUInt8();
+    if (authMethodsAmount > 128 || authMethodsAmount === 0) {
+      return this.socket.destroy(); // Too many methods
     }
 
-    private async handleGreeting() {
-        const ver = (await this.readBytes(1)).readUInt8();
-        if (ver !== 5) return this.socket.destroy(); // Must be version 5 for socks5
+    const authMethods = await this.readBytes(authMethodsAmount);
+    this.socket.write(Buffer.from([
+      0x05, // Version 5 - Socks5
+      !authMethods.includes(0x02) ? 0x00 : 0x02 // The chosen auth method, 0x00 for no auth, 0x02 for user-pass
+    ]));
 
-        const authMethodsAmount = (await this.readBytes(1)).readUInt8();
-        if (authMethodsAmount > 128 || authMethodsAmount === 0) return this.socket.destroy(); // Too many methods
+    await this.handleConnect(authMethods.includes(0x02));
+  }
 
-        const authMethods = await this.readBytes(authMethodsAmount);
+  private async handleConnect(auth: boolean) {
+    if (auth) {
+      await this.readBytes(1); // Skip version byte, should be 1 for version 1 of user password auth
+      const usernameLength = (await this.readBytes(1)).readUint8();
+      this.username = (await this.readBytes(usernameLength)).toString();
+      const passwordLength = (await this.readBytes(1)).readUint8();
+      this.password = (await this.readBytes(passwordLength)).toString();
+    }
 
-        const authMethodByteCode = this.server.authHandler ? 0x02 : 0x00;
+    let calledBack = false;
 
-        if (!authMethods.includes(authMethodByteCode)) {
-            // The chosen authentication method is not available
-            this.socket.write(Buffer.from([
-                0x05, // Version 5 - Socks5
-                0xFF // no acceptable auth modes were offered
-            ]));
-            return this.socket.destroy();
-        }
-
+    const acceptCallback = () => {
+      if (calledBack) return;
+      calledBack = true;
+      if (auth) {
         this.socket.write(Buffer.from([
-            0x05, // Version 5 - Socks5
-            authMethodByteCode // The chosen auth method, 0x00 for no auth, 0x02 for user-pass
+          0x01, // User pass auth version
+          0x00 // Success
         ]));
+      }
 
-        if (this.server.authHandler) this.handleUserPassword();
-        else this.handleConnectionRequest();
+      this.handleConnectionRequest();
+    };
+    const denyCallback = () => {
+      if (calledBack) return;
+      calledBack = true;
+      if (auth) {
+        this.socket.write(Buffer.from([
+          0x01, // User pass auth version
+          0x01 // Failure
+        ]));
+      } else {
+        this.socket.write(Buffer.from([
+          0x05, // Version 5 - Socks5
+          0x01 // no acceptable auth modes were offered
+        ]));
+      }
+
+      this.socket.destroy();
+    };
+
+    const resp = await this.server.authHandler!(this as AuthSocks5Connection, acceptCallback, denyCallback);
+
+    if (resp === true) acceptCallback();
+    else if (resp === false) denyCallback();
+  }
+
+  private async handleConnectionRequest() {
+    await this.readBytes(1); // Skip version byte, should be 5 for socks5
+
+    const commandByte = (await this.readBytes(1))[0];
+
+    const command = Socks5ConnectionCommand[commandByte] as 'connect' | 'bind' | 'udp';
+    if (!command) return this.socket.destroy(); // Invalid command
+    this.command = command;
+
+    await this.readBytes(1); // Skip reserved byte, should be 0x00
+
+    // Reading destination address
+    const addrType = (await this.readBytes(1)).readUInt8();
+
+    let address = '';
+    switch (addrType) {
+      case 1:
+        // IPv4
+        address = (await this.readBytes(4)).join('.');
+        break;
+
+      case 3:
+        // Domain name
+        const hostLength = (await this.readBytes(1)).readUInt8();
+        address = (await this.readBytes(hostLength)).toString();
+        break;
+
+      case 4:
+        // IPv6
+        const bytes = await this.readBytes(16);
+
+        for (let i = 0; i < 16; i++) {
+          if (i % 2 === 0 && i > 0) address += ':';
+          address += `${bytes[i] < 16 ? '0' : ''}${bytes[i].toString(16)}`;
+        }
+        break;
+
+      default:
+        this.socket.destroy(); // No valid address type provided
+        return;
     }
 
-    private async handleUserPassword() {
-        await this.readBytes(1); // Skip version byte, should be 1 for version 1 of user password auth
+    const port = (await this.readBytes(2)).readUInt16BE();
 
-        const usernameLength = (await this.readBytes(1)).readUint8();
-        const username = (await this.readBytes(usernameLength)).toString();
 
-        const passwordLength = (await this.readBytes(1)).readUint8();
-        const password = (await this.readBytes(passwordLength)).toString();
-
-        this.username = username;
-        this.password = password;
-
-        let calledBack = false;
-
-        const acceptCallback = () => {
-            if (calledBack) return;
-            calledBack = true;
-
-            this.socket.write(Buffer.from([
-                0x01, // User pass auth version
-                0x00 // Success
-            ]))
-            this.handleConnectionRequest();
-        };
-        const denyCallback = () => {
-            if (calledBack) return;
-            calledBack = true;
-
-            this.socket.write(Buffer.from([
-                0x01, // User pass auth version
-                0x01 // Failure
-            ]))
-
-            this.socket.destroy();
-        }
-
-        const resp = await this.server.authHandler!(this as AuthSocks5Connection, acceptCallback, denyCallback)
-
-        if (resp === true) acceptCallback();
-        else if (resp === false) denyCallback();
+    if (!this.server.supportedCommands.has(command)) {
+      this.socket.write(Buffer.from([0x05, Socks5ConnectionStatus.COMMAND_NOT_SUPPORTED])); // command not supported
+      return this.socket.destroy();
     }
 
-    private async handleConnectionRequest() {
-        await this.readBytes(1); // Skip version byte, should be 5 for socks5
+    this.destAddress = address;
+    this.destPort = port;
 
-        const commandByte = (await this.readBytes(1))[0]
-        const command = Socks5ConnectionCommand[commandByte] as "connect" | "bind" | "udp";
-        if (!command) return this.socket.destroy(); // Invalid command
-        this.command = command;
+    let calledBack = false;
+    const acceptCallback = () => {
+      if (calledBack) return;
+      calledBack = true;
 
-        await this.readBytes(1); // Skip reserved byte, should be 0x00
+      this.connect();
+    };
 
-        // Reading destination address
-        const addrType = (await this.readBytes(1)).readUInt8();
-
-        let address = '';
-        switch(addrType) {
-            case 1:
-                // IPv4
-                address = (await this.readBytes(4)).join('.');
-                break;
-
-            case 3:
-                // Domain name
-                const hostLength = (await this.readBytes(1)).readUInt8();
-                address = (await this.readBytes(hostLength)).toString();
-                break;
-
-            case 4:
-                // IPv6
-                const bytes = await this.readBytes(16);
-
-                for (let i = 0; i < 16; i++) {
-                    if (i % 2 === 0 && i > 0) address += ':';
-                    address += `${bytes[i] < 16 ? '0' : ''}${bytes[i].toString(16)}`
-                }
-                break;
-
-            default:
-                this.socket.destroy(); // No valid address type provided
-                return;
-        }
-
-        const port = (await this.readBytes(2)).readUInt16BE();
-
-
-        if (!this.server.supportedCommands.has(command)) {
-            this.socket.write(Buffer.from([0x05, Socks5ConnectionStatus.COMMAND_NOT_SUPPORTED])); // command not supported
-            return this.socket.destroy();
-        }
-
-        this.destAddress = address;
-        this.destPort = port;
-
-        let calledBack = false;
-        const acceptCallback = () => {
-            if (calledBack) return;
-            calledBack = true;
-
-            this.connect();
-        };
-
-        if (!this.server.rulesetValidator) {
-            return acceptCallback();
-        }
-
-        const denyCallback = () => {
-            if (calledBack) return;
-            calledBack = true;
-
-            this.socket.write(Buffer.from([
-                0x05, 0x02, // connection not allowed by ruleset
-                0x00,
-                0x01,
-                0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00
-            ]));
-            this.socket.destroy();
-        }
-
-        const resp = await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
-
-        if (resp === true) acceptCallback();
-        else if (resp === false) denyCallback();
+    if (!this.server.rulesetValidator) {
+      return acceptCallback();
     }
 
-    private connect() {
-        this.socket.removeListener('error', this.errorHandler);
+    const denyCallback = () => {
+      if (calledBack) return;
+      calledBack = true;
 
-        this.server.connectionHandler(this as InitialisedSocks5Connection, (status) => {
-            if (Socks5ConnectionStatus[status] === undefined) throw new Error(`"${status}" is not a valid status.`);
+      this.socket.write(Buffer.from([
+        0x05, 0x02, // connection not allowed by ruleset
+        0x00,
+        0x01,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00
+      ]));
+      this.socket.destroy();
+    };
 
-            // We can just send 0x00 for bound address stuff
-            this.socket.write(Buffer.from([
-                0x05,
-                Socks5ConnectionStatus[status],
-                0x00,
-                0x01,
-                0x00, 0x00, 0x00, 0x00,
-                0x00, 0x00
-            ]))
+    const resp = await this.server.rulesetValidator!(this as InitialisedSocks5Connection, acceptCallback, denyCallback);
 
-            if (status !== 'REQUEST_GRANTED') {
-                this.socket.destroy()
-            }
-        })
+    if (resp === true) acceptCallback();
+    else if (resp === false) denyCallback();
+  }
 
-        this.socket.resume();
-    }
+  private connect() {
+    this.socket.removeListener('error', this.errorHandler);
+
+    this.server.connectionHandler(this as InitialisedSocks5Connection, (status) => {
+      if (Socks5ConnectionStatus[status] === undefined) throw new Error(`"${status}" is not a valid status.`);
+
+      // We can just send 0x00 for bound address stuff
+      this.socket.write(Buffer.from([
+        0x05,
+        Socks5ConnectionStatus[status],
+        0x00,
+        0x01,
+        0x00, 0x00, 0x00, 0x00,
+        0x00, 0x00
+      ]));
+
+      if (status !== 'REQUEST_GRANTED') {
+        this.socket.destroy();
+      }
+    });
+
+    this.socket.resume();
+  }
 }
