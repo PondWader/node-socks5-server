@@ -6,7 +6,7 @@ import net from "net";
 export default function (connection: InitialisedSocks5Connection, sendStatus: (status: keyof typeof Socks5ConnectionStatus) => void) {
     if (connection.command !== 'connect') return sendStatus('COMMAND_NOT_SUPPORTED');
 
-    connection.socket.on('error', () => {}); // Ignore errors
+    connection.socket.on('error', () => { }); // Ignore errors
 
     const stream = net.createConnection({
         host: connection.destAddress,
@@ -14,9 +14,10 @@ export default function (connection: InitialisedSocks5Connection, sendStatus: (s
     });
 
     let streamOpened = false;
-    stream.on('error', (err: Error & {code: string}) => {
+    stream.on('error', (err: Error & { code: string }) => {
         if (!streamOpened) {
             switch (err.code) {
+                case 'EINVAL':
                 case 'ENOENT':
                 case 'ENOTFOUND':
                 case 'ETIMEDOUT':
