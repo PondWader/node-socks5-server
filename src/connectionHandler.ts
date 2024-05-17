@@ -45,4 +45,6 @@ export default function (connection: InitialisedSocks5Connection, sendStatus: (s
     })
 
     connection.socket.on('close', () => stream.destroy());
+
+    return stream;
 }
