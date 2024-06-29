@@ -20,6 +20,8 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: ${{ matrix.node-version }}
-      - run: npm install yarn
-      - run: npx yarn install
-      - run: npm test
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 8
+          run_install: true
+      - run: pnpm test

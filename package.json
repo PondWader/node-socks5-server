@@ -26,6 +26,6 @@
   "scripts": {
     "prepublish": "pnpm run build",
     "build": "tsup ./src/index.ts --format cjs,esm --dts",
-    "test": "tsc && jest"
+    "test": "pnpm run build && jest"
   }
 }
